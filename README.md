@@ -1,5 +1,5 @@
 # AI Social Post Generator
-=======
+
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![Flask](https://img.shields.io/badge/Flask-2.3.3-green)
 ![Hugging Face](https://img.shields.io/badge/Hugging%20Face-Transformers-orange)
