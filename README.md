@@ -14,6 +14,4 @@
 ## Технологии
 - Python, Flask
 - Transformers, Stable Diffusion
-- GitHub: [твоя_ссылка]
-
-<image-card alt="Демо" src="static/images/example.png" ></image-card>
+- GitHub: [(https://github.com/sk-dev-hub/social-content-generator)]
