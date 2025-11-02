@@ -1,68 +1,43 @@
-import sys
-import io
-
-# Принудительно UTF-8 в консоли Windows
-if sys.platform.startswith('win'):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-
 import os
-from dotenv import load_dotenv
-
-# Убираем предупреждения
-os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-load_dotenv()
-
-from flask import Flask, render_template, request
 import requests
-import io
+from openai import OpenAI
+from flask import Flask, render_template, request
+from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
 import time
-from transformers import pipeline
-import torch
+import io
 
+load_dotenv()
 app = Flask(__name__)
 
 huggingface_key = os.getenv('HUGGINGFACE_API_KEY')
 print(f"🔑 HuggingFace ключ: {'ДА' if huggingface_key else 'НЕТ'}")
 
-# Лёгкая модель для скорости
-try:
-    print("🤖 Загружаем модель для текста...")
-    text_generator = pipeline(
-        "text-generation",
-        model="sberbank-ai/rugpt3small_based_on_gpt2",
-        device=0 if torch.cuda.is_available() else -1
-    )
-    print("✅ Модель текста загружена!")
-except Exception as e:
-    print(f"❌ Ошибка модели: {e}")
-    text_generator = None
+# === OpenAI-совместимый клиент Hugging Face ===
+client = OpenAI(
+    base_url="https://router.huggingface.co/v1",
+    api_key=os.getenv("HUGGINGFACE_API_KEY")
+)
 
+def generate_post_hf_deepseek(topic):
+    print(f"Генерируем пост: '{topic}'")
 
-def generate_post_hf(topic):
-    if not text_generator:
-        return generate_post_zagl(topic)
+    prompt = f"""Write a short, engaging Instagram post about '{topic}'. 
+    Include 1–2 emojis, 2–3 relevant hashtags, and keep it under 120 characters. 
+    Make it positive and inspiring."""
 
     try:
-        prompt = f"Пост для соцсетей: {topic}. Коротко, с эмодзи и хештегами:\n"
-
-        result = text_generator(
-            prompt,
-            max_length=100,
-            temperature=0.8,
-            do_sample=True,
-            truncation=True,
-            pad_token_id=text_generator.tokenizer.eos_token_id
+        completion = client.chat.completions.create(
+            model="deepseek-ai/DeepSeek-V3.2-Exp:novita",  # Работает!
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=100,
+            temperature=0.7
         )
-
-        text = result[0]['generated_text']
-        text = text.replace(prompt, "").strip()
-        text = text.split('\n')[0]  # Берём только первую строку
-        return text if text else "Попробуй ещё раз!"
-
+        text = completion.choices[0].message.content.strip()
+        print(f"УСПЕХ: {text}")
+        return text
     except Exception as e:
+        print(f"Ошибка API: {e}")
         return generate_post_zagl(topic)
 
 
@@ -162,7 +137,7 @@ def index():
 
         if user_topic:
             # Текст
-            generated_text = generate_post_hf(user_topic)
+            generated_text = generate_post_hf_deepseek(user_topic)
 
             # Изображение
             image_path, img_error = generate_image_hf(user_topic)

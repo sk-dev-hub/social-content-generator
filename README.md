@@ -1,19 +1,22 @@
-# AI-Генератор постов для соцсетей
+# AI Social Post Generator
 
-Это Flask-приложение, которое генерирует текст и изображения для постов в Instagram/VK/X с помощью Hugging Face моделей.
+**Генератор постов для Instagram/VK/X с ИИ**  
+Использует **DeepSeek-V3.2-Exp** через Hugging Face OpenAI-совместимый API
 
-## Установка
-1. `pip install -r requirements.txt`
-2. Создай `.env` с `HUGGINGFACE_API_KEY=твой_ключ`
-3. `python app.py`
+## Особенности
+- Мгновенная генерация текста и изображений
+- Поддержка английского
+- API-интеграция (без локальных моделей)
+- Готов к деплою
 
-## Демо
-- Текст: "Спорт — это жизнь! 💪"
-- Изображение: AI-арт по теме
 
 ## Технологии
 - Python, Flask
-- Transformers, Stable Diffusion
-- GitHub: [твоя_ссылка]
+- DeepSeek AI, Hugging Face
+- OpenAI-совместимый API
 
-<image-card alt="Демо" src="static/images/example.png" ></image-card>
+## Установка
+```bash
+git clone https://github.com/sk-dev-hub/social-content-generator.git
+cd social-content-generator
+pip install -r requirements.txt
