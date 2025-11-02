@@ -1,3 +1,8 @@
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![Flask](https://img.shields.io/badge/Flask-2.3.3-green)
+![Hugging Face](https://img.shields.io/badge/Hugging%20Face-Transformers-orange)
+![AI](https://img.shields.io/badge/AI-Generated-red)
+
 # AI-Генератор постов для соцсетей
 
 Это Flask-приложение, которое генерирует текст и изображения для постов в Instagram/VK/X с помощью Hugging Face моделей.
