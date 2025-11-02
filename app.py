@@ -1,0 +1,186 @@
+import sys
+import io
+
+# Принудительно UTF-8 в консоли Windows
+if sys.platform.startswith('win'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+import os
+from dotenv import load_dotenv
+
+# Убираем предупреждения
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+load_dotenv()
+
+from flask import Flask, render_template, request
+import requests
+import io
+from PIL import Image, ImageDraw, ImageFont
+import time
+from transformers import pipeline
+import torch
+
+app = Flask(__name__)
+
+huggingface_key = os.getenv('HUGGINGFACE_API_KEY')
+print(f"🔑 HuggingFace ключ: {'ДА' if huggingface_key else 'НЕТ'}")
+
+# Лёгкая модель для скорости
+try:
+    print("🤖 Загружаем модель для текста...")
+    text_generator = pipeline(
+        "text-generation",
+        model="sberbank-ai/rugpt3small_based_on_gpt2",
+        device=0 if torch.cuda.is_available() else -1
+    )
+    print("✅ Модель текста загружена!")
+except Exception as e:
+    print(f"❌ Ошибка модели: {e}")
+    text_generator = None
+
+
+def generate_post_hf(topic):
+    if not text_generator:
+        return generate_post_zagl(topic)
+
+    try:
+        prompt = f"Пост для соцсетей: {topic}. Коротко, с эмодзи и хештегами:\n"
+
+        result = text_generator(
+            prompt,
+            max_length=100,
+            temperature=0.8,
+            do_sample=True,
+            truncation=True,
+            pad_token_id=text_generator.tokenizer.eos_token_id
+        )
+
+        text = result[0]['generated_text']
+        text = text.replace(prompt, "").strip()
+        text = text.split('\n')[0]  # Берём только первую строку
+        return text if text else "Попробуй ещё раз!"
+
+    except Exception as e:
+        return generate_post_zagl(topic)
+
+
+def generate_post_zagl(topic):
+    """Заглушка текста"""
+    templates = {
+        "кофе": "☕️ Утренний кофе - заряд энергии! #кофе #утро",
+        "спорт": "💪 Тренировка = результат! #спорт #мотивация",
+        "программирование": "💻 Кодим будущее! #программирование #IT",
+        "путешествия": "✈️ Новые горизонты! #путешествия"
+    }
+
+    topic_lower = topic.lower()
+    for key in templates:
+        if key in topic_lower:
+            return templates[key]
+
+    return f"🎉 {topic}! #AI #Generated"
+
+
+def generate_image_hf(prompt):
+    """Генерация через HF API"""
+    print(f"🎨 Генерируем: '{prompt}'")
+
+    if not huggingface_key:
+        return None, "❌ Нет API ключа"
+
+    MODELS = [
+        "stabilityai/stable-diffusion-xl-base-1.0",  # Новая!
+        "runwayml/stable-diffusion-v1-5",
+        "CompVis/stable-diffusion-v1-4"
+    ]
+
+    headers = {"Authorization": f"Bearer {huggingface_key}"}
+
+    for model in MODELS:
+        try:
+            API_URL = f"https://api-inference.huggingface.co/models/{model}"
+            payload = {"inputs": f"{prompt}, digital art, high quality, vibrant"}
+
+            print(f"🔄 Модель: {model}")
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=45)
+
+            if response.status_code == 200 and response.content:
+                image = Image.open(io.BytesIO(response.content))
+                os.makedirs("static/images", exist_ok=True)
+                filename = f"static/images/gen_{int(time.time())}.png"
+                image.save(filename)
+                print(f"✅ Изображение: {filename}")
+                return filename, None
+            else:
+                print(f"❌ {model}: {response.status_code}")
+
+        except Exception as e:
+            print(f"❌ {model}: {e}")
+            continue
+
+    return None, "⏳ Модели загружаются"
+
+
+def generate_image_zagl(prompt):
+    """✅ ИСПРАВЛЕННАЯ заглушка - ТОЛЬКО ASCII"""
+    os.makedirs("static/images", exist_ok=True)
+
+    # ✅ Русский → Английский
+    translations = {
+        "спорт": "SPORT", "кофе": "COFFEE", "программирование": "CODING",
+        "путешествия": "TRAVEL", "фитнес": "FITNESS", "еда": "FOOD"
+    }
+
+    english = translations.get(prompt.lower(), "AI ART")
+
+    img = Image.new('RGB', (512, 512), color=(70, 130, 180))
+    d = ImageDraw.Draw(img)
+
+    try:
+        font = ImageFont.load_default()
+        d.text((50, 200), f"{english}\n#AI #Generated", fill=(255, 255, 255), font=font)
+    except:
+        d.text((50, 200), "AI IMAGE", fill=(255, 255, 255))
+
+    filename = f"static/images/gen_{int(time.time())}.png"
+    img.save(filename)
+
+    return filename, None
+
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    generated_text = None
+    generated_image = None
+    user_topic = ""
+    error_message = None
+
+    if request.method == 'POST':
+        user_topic = request.form.get('topic', '').strip()
+
+        if user_topic:
+            # Текст
+            generated_text = generate_post_hf(user_topic)
+
+            # Изображение
+            image_path, img_error = generate_image_hf(user_topic)
+
+            if not image_path:
+                image_path, _ = generate_image_zagl(user_topic)
+                if img_error:
+                    error_message = img_error
+
+            generated_image = image_path
+
+    return render_template('index.html',
+                           generated_text=generated_text,
+                           generated_image=generated_image,
+                           user_topic=user_topic,
+                           error_message=error_message)
+
+
+if __name__ == '__main__':
+    print("🚀 Запуск...")
+    app.run(debug=True, host='0.0.0.0', port=5000)
